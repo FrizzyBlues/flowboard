@@ -1,0 +1,14 @@
+services:
+  flowboard:
+    build: .
+    image: flowboard:local
+    container_name: flowboard
+    ports:
+      - "8788:8788"
+    environment:
+      # Use MOCK_HA=true for safe UI demos without touching Home Assistant.
+      MOCK_HA: "true"
+      # For live mode, set these in an uncommitted .env file or compose override:
+      # HASS_URL: "http://homeassistant.local:8123"
+      # HASS_TOKEN: "${HASS_TOKEN}"
+    restart: unless-stopped

@@ -1,0 +1,14 @@
+services:
+  flowboard:
+    build: .
+    image: flowboard:local
+    ports:
+      - "8788:8788"
+    environment:
+      PORT: "8788"
+      # Runtime-only Home Assistant configuration. Do not bake secrets into the image.
+      HASS_URL: "http://homeassistant.local:8123"
+      HASS_TOKEN: "replace-with-a-home-assistant-long-lived-access-token"
+      # Set MOCK_HASS=true to preview the UI without contacting Home Assistant.
+      # MOCK_HASS: "true"
+    restart: unless-stopped
