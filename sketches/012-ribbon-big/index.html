@@ -1,0 +1,138 @@
+<!doctype html>
+<html><head><meta charset='utf-8'>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Corner ribbon — bigger</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #101010; font-family: 'Arial Black', Impact, system-ui, sans-serif; color: #f2f2f5; padding: 26px; }
+body::before { content:''; position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px),
+              linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px); background-size: 28px 28px; }
+h1 { color: #ff5bd1; text-shadow: 4px 4px 0 #000; font-size: clamp(1.5rem,3.5vw,2.4rem); margin-bottom: 4px; }
+.sub { font-family: ui-monospace, monospace; font-weight: 700; font-size: .74rem; opacity: .75; margin-bottom: 26px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 30px; max-width: 1350px; }
+
+.vent { height: 230px; border: 5px solid #000; box-shadow: 8px 8px 0 #000; background: #232329;
+  border-radius: 22px; position: relative; overflow: hidden; display: flex; flex-direction: column; cursor: pointer; user-select: none; }
+.vent:nth-child(even) { background: #2a2433; }
+.pin { position: absolute; right: 14px; top: -13px; width: 26px; height: 26px; border: 4px solid #000;
+  border-radius: 50%; background: #ff5bd1; z-index: 6; }
+.controls { padding: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; flex-shrink: 0; }
+.vent-name { font-size: 1.05rem; color: #f0f0f4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; flex: 1; }
+.pill { border: 3px solid #000; padding: 4px 8px; box-shadow: 3px 3px 0 #000; font-size: .62rem; white-space: nowrap; }
+.pill.on { background: #6bff5c; color: #000; } .pill.off { background: #3a3a42; color: #ddd; }
+.body-zone { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 0; }
+
+.sensor-col { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; z-index: 5; }
+.chip { display: inline-flex; align-items: center; gap: 5px; border: 3px solid #000; padding: 4px 7px;
+  background: #1c1c22; color: #f2f2f5; box-shadow: 3px 3px 0 #000;
+  font-family: ui-monospace, monospace; font-weight: 900; font-size: .64rem; white-space: nowrap; }
+.chip.t { color: #ff7a59; } .chip.h { color: #2fd4f2; } .chip.b { color: #c6ff00; }
+.chip span { color: #f2f2f5; }
+
+.register { position: relative; width: 128px; height: 80px; border: 5px solid #000; border-radius: 11px;
+  background: #31313a; box-shadow: 6px 6px 0 #000; flex-shrink: 0; }
+.slats { position: absolute; inset: 10px; display: grid; grid-template-rows: repeat(5, 1fr); gap: 5px; }
+.slats i { background: #e6e6ec; border-radius: 4px; transform-origin: left center;
+  transition: transform .45s cubic-bezier(.6,-0.3,.3,1.4), background .45s; }
+.vent.on .slats i { transform: rotate(-38deg); background: #17a3c0; }
+.wind { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.wind i { position: absolute; width: 34px; height: 12px; border-radius: 20px; background: rgba(47,212,242,.5);
+  filter: blur(1px); opacity: 0; }
+.vent.on .wind i { animation: drift 1.4s linear infinite; }
+.wind i:nth-child(1) { top: 18%; left: 8%; animation-delay: 0s; }
+.wind i:nth-child(2) { top: 40%; left: 0%; width: 46px; animation-delay: .35s; }
+.wind i:nth-child(3) { top: 62%; left: 12%; width: 28px; animation-delay: .7s; }
+.wind i:nth-child(4) { top: 80%; left: 4%; width: 40px; animation-delay: 1.05s; }
+@keyframes drift { 0% { opacity: 0; transform: translateX(-10px) scaleX(.4); } 30% { opacity: .85; } 100% { opacity: 0; transform: translateX(120px) scaleX(1.15); } }
+.foot { border-top: 5px solid #000; background: #1e1e24; border-radius: 0 0 17px 17px; padding: 7px 10px; flex-shrink: 0; }
+.foot button { width: 100%; background: #000; color: #c6ff00; font-size: .68rem; letter-spacing: .1em;
+  padding: 7px 8px; border: 3px solid #000; font-family: inherit; cursor: pointer; }
+
+/* ===== CORNER RIBBON — compact V1/V2/V3, medium-large ===== */
+.ribbon { position: absolute; top: -15px; left: -11px; z-index: 5;
+  font-family: 'Arial Black', Impact, sans-serif; font-weight: 900; font-size: .78rem;
+  letter-spacing: .04em; background: #ffde00; color: #000;
+  border: 4px solid #000; padding: 4px 8px;
+  transform: rotate(-7deg); box-shadow: 3px 3px 0 #000; }
+</style></head>
+<body>
+<h1>CORNER RIBBON — SIZED UP</h1>
+<p class="sub">Bigger chip, bigger bold text (VENT 1 style). Click cards to toggle.</p>
+<div class="grid">
+
+<article class="vent on" onclick="t(this)">
+  <span class="pin"></span>
+  <div class="controls">
+    <div class="row"><h3 class="vent-name">Great Room</h3><span class="pill on">OPEN</span></div>
+    <div class="body-zone">
+      <div class="sensor-col"><span class="chip t">🌡 <span>68°F</span></span><span class="chip h">💧 <span>44%</span></span><span class="chip b">🔋 <span>38%</span></span></div>
+      <div class="register">
+        <span class="ribbon">V1</span>
+        <div class="wind"><i></i><i></i><i></i><i></i></div>
+        <div class="slats"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><button>CALIBRATE</button></div>
+</article>
+
+<article class="vent" onclick="t(this)" style="background:#232329">
+  <span class="pin"></span>
+  <div class="controls">
+    <div class="row"><h3 class="vent-name">Great Room</h3><span class="pill off">CLOSED</span></div>
+    <div class="body-zone">
+      <div class="sensor-col"><span class="chip t">🌡 <span>68°F</span></span><span class="chip h">💧 <span>44%</span></span><span class="chip b">🔋 <span>38%</span></span></div>
+      <div class="register">
+        <span class="ribbon">V2</span>
+        <div class="wind"><i></i><i></i><i></i><i></i></div>
+        <div class="slats"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><button>CALIBRATE</button></div>
+</article>
+
+<article class="vent on" onclick="t(this)" style="background:#2a2433">
+  <span class="pin"></span>
+  <div class="controls">
+    <div class="row"><h3 class="vent-name">Great Room</h3><span class="pill on">OPEN</span></div>
+    <div class="body-zone">
+      <div class="sensor-col"><span class="chip t">🌡 <span>68°F</span></span><span class="chip h">💧 <span>44%</span></span><span class="chip b">🔋 <span>38%</span></span></div>
+      <div class="register">
+        <span class="ribbon">V3</span>
+        <div class="wind"><i></i><i></i><i></i><i></i></div>
+        <div class="slats"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><button>CALIBRATE</button></div>
+</article>
+
+<article class="vent" onclick="t(this)" style="background:#232329">
+  <span class="pin"></span>
+  <div class="controls">
+    <div class="row"><h3 class="vent-name">Study Room</h3><span class="pill off">CLOSED</span></div>
+    <div class="body-zone">
+      <div class="sensor-col"><span class="chip t">🌡 <span>71.7°F</span></span><span class="chip h">💧 <span>38%</span></span><span class="chip b">🔋 <span>40%</span></span></div>
+      <div class="register">
+        <span class="ribbon">V1</span>
+        <div class="wind"><i></i><i></i><i></i><i></i></div>
+        <div class="slats"><i></i><i></i><i></i><i></i><i></i></div>
+      </div>
+    </div>
+  </div>
+  <div class="foot"><button>CALIBRATE</button></div>
+</article>
+
+</div>
+<script>
+function t(card) {
+  const on = card.classList.toggle('on');
+  const pill = card.querySelector('.pill');
+  pill.textContent = on ? 'OPEN' : 'CLOSED';
+  pill.className = 'pill ' + (on ? 'on' : 'off');
+}
+</script>
+</body></html>

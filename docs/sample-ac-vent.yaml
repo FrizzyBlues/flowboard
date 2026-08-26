@@ -1,0 +1,147 @@
+esphome:
+  name: study-room-vent-1
+  friendly_name: Study Room Vent 1
+
+esp8266:
+  board: d1_mini
+
+substitutions:
+  room_name: study-room
+  device_type: ac-vent
+  device_name: vent-1
+
+# Enable logging
+logger:
+
+# Enable Home Assistant API
+api:
+  encryption:
+    key: "xxxxzxxx"
+
+ota:
+  - platform: esphome
+    password: "xxxxxxyxxxx"
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  
+  # Optional manual IP
+  manual_ip:
+    static_ip: 192.168.0.82
+    gateway: 192.168.0.1
+    subnet: 255.255.255.0
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Study-Room-Vent-1"
+    password: "xzxzxzxzxz
+# Servo component configuration
+output:
+  - platform: esp8266_pwm
+    id: pwm_output
+    frequency: 50 Hz
+    pin: D4  # Replace with the GPIO pin you connected the servo to (D4 = GPIO2)
+
+servo:
+  - id: vent_servo
+    output: pwm_output
+
+# Subscribe to MQTT topic for external control
+# Enable MQTT
+mqtt:
+  broker: !secret mqtt_broker
+  username: !secret mqtt_username
+  password: !secret mqtt_password
+  discovery: False
+  discover_ip: False
+  on_message:
+    - topic: "${room_name}/${device_type}/${device_name}/control"
+      payload: "OPEN"
+      then:
+        - switch.turn_on: vent_switch
+    - topic: "${room_name}/${device_type}/${device_name}/control"
+      payload: "CLOSE"
+      then:
+        - switch.turn_off: vent_switch
+
+# Define global variables for servo positions and limits
+globals:
+  - id: vent_open_position
+    type: float
+    restore_value: yes
+    initial_value: "-0.60"
+
+  - id: vent_closed_position
+    type: float
+    restore_value: yes
+    initial_value: "-0.15"
+
+  - id: vent_min_position
+    type: float
+    restore_value: no
+    initial_value: "-1.0"  # Centralized min value
+
+  - id: vent_max_position
+    type: float
+    restore_value: no
+    initial_value: "1.0"  # Centralized max value
+
+# Number entity to adjust positions dynamically
+number:
+  - platform: template
+    name: "Set Open Position"
+    id: vent_open_pos
+    optimistic: true
+    restore_value: true
+    min_value: -1.0  # Use static value, since lambda is not allowed
+    max_value: 1.0   # Use static value
+    step: 0.01
+    initial_value: -0.60  # Use static value
+    set_action:
+      - globals.set:
+          id: vent_open_position
+          value: !lambda | 
+            if (x < id(vent_min_position)) return id(vent_min_position);
+            if (x > id(vent_max_position)) return id(vent_max_position);
+            return x;
+
+  - platform: template
+    name: "Set Closed Position"
+    id: vent_closed_pos
+    optimistic: true
+    restore_value: true
+    min_value: -1.0  # Use static value
+    max_value: 1.0   # Use static value
+    step: 0.01
+    initial_value: -0.15  # Use static value
+    set_action:
+      - globals.set:
+          id: vent_closed_position
+          value: !lambda | 
+            if (x < id(vent_min_position)) return id(vent_min_position);
+            if (x > id(vent_max_position)) return id(vent_max_position);
+            return x;
+
+# Control the servo via switches
+switch:
+  - platform: template
+    name: "Vent Switch"
+    optimistic: true
+    restore_mode: ALWAYS_ON
+    id: vent_switch
+    discovery: false
+    turn_on_action:
+      - servo.write:
+          id: vent_servo
+          level: !lambda 'return id(vent_open_position);'
+      - mqtt.publish:
+          topic: "${room_name}/${device_type}/${device_name}/status"
+          payload: "OPENED"
+    turn_off_action:
+      - servo.write:
+          id: vent_servo
+          level: !lambda 'return id(vent_closed_position);'
+      - mqtt.publish:
+          topic: "${room_name}/${device_type}/${device_name}/status"
+          payload: "CLOSED"
