@@ -1,0 +1,291 @@
+<!doctype html><html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'><title>V2.1 Hybrid - Collapsed Calibration, Stable Grid</title><style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #101010; color: #0a0a0a; font-family: 'Arial Black', Impact, system-ui, sans-serif; }
+body::before { content: ''; position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px),
+              linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 28px 28px; }
+p, .entity, .cal-label, .note { font-family: ui-monospace, 'Courier New', monospace; font-weight: 700; }
+button, input { font: inherit; border: 4px solid #000; background: #fff; color: #000;
+  padding: 9px 12px; box-shadow: 5px 5px 0 #000; border-radius: 0; }
+button { cursor: pointer; transition: transform .08s, box-shadow .08s; }
+button:hover:not(:disabled) { transform: translate(2px,2px); box-shadow: 3px 3px 0 #000; background: #ff5bd1; }
+button:disabled { opacity: .4; cursor: not-allowed; }
+h1 { font-size: clamp(2.4rem,7vw,5rem); line-height: .85; letter-spacing: -.06em; color: #ff5bd1; text-shadow: 5px 5px 0 #000; }
+h2 { font-size: 1.5rem; line-height: .95; }
+.eyebrow { text-transform: uppercase; letter-spacing: .18em; font-size: .72rem; }
+header { margin: 26px auto 18px; width: min(1180px, calc(100% - 28px));
+  background: #fff; border: 6px solid #000; box-shadow: 12px 12px 0 #000;
+  padding: 26px; display: flex; justify-content: space-between; gap: 20px; align-items: flex-end; }
+aside { display: grid; gap: 10px; min-width: 150px; }
+aside b { background: #00e5ff; border: 4px solid #000; padding: 10px; box-shadow: 4px 4px 0 #000; text-align: center; }
+.pill { border: 4px solid #000; padding: 5px 10px; background: #ddd; box-shadow: 4px 4px 0 #000;
+  font-size: .7rem; white-space: nowrap; }
+.pill.open { background: #6bff5c; }
+.pill.closed { background: #b9b9b9; }
+.pill.unavailable, .pill.unknown { background: #ff5bd1; }
+.entity { font-size: .68rem; word-break: break-all; background: #000; color: #fff; padding: 7px 8px; display: block; }
+.lanes { width: min(1180px, calc(100% - 28px)); margin: 24px auto; display: grid; grid-template-columns: 190px 1fr; gap: 20px; }
+.rail { display: grid; align-content: start; gap: 14px; position: sticky; top: 12px; }
+.note { background: #c6ff00; border: 4px solid #000; box-shadow: 4px 4px 0 #000; padding: 10px; font-size: .68rem; }
+
+/* ===== ZERO-REFLOW GRID ===== */
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 26px 24px; align-items: start; }
+.vent { height: 300px;              /* FIXED footprint — never grows */
+  border: 5px solid #000; box-shadow: 8px 8px 0 #000; background: #fff;
+  border-radius: 26px; position: relative; z-index: 1;
+  display: flex; flex-direction: column; }
+.vent:nth-child(even) { background: #ffe9fb; transform: rotate(.6deg); }
+.vent:nth-child(odd) { background: #e9fdff; transform: rotate(-.4deg); }
+.vent.cal-open { z-index: 40; }     /* expanded card floats above neighbors */
+.pin { position: absolute; right: 20px; top: -16px; width: 34px; height: 34px; border: 5px solid #000;
+  border-radius: 50%; background: #ff5bd1; z-index: 2; }
+.card-head { padding: 18px 18px 12px; flex: 1; }
+.card-head .row { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.state { margin: 8px 0 0; }
+/* collapsed-by-default calibration toggle bar */
+.cal-toggle { border-top: 5px solid #000; background: #f4f4f4; border-radius: 0 0 21px 21px; padding: 10px 14px; }
+.cal-toggle button { width: 100%; background: #000; color: #c6ff00; font-size: .78rem;
+  letter-spacing: .12em; }
+.cal-toggle button:hover { background: #ff5bd1; color: #000; }
+/* ===== ABSOLUTE EXPANDING PANEL — layout never touched ===== */
+.cal-panel { display: none; position: absolute; left: -5px; right: -5px; top: calc(100% - 8px);
+  background: #f4f4f4; border: 5px solid #000; box-shadow: 10px 10px 0 #000;
+  border-radius: 0 0 26px 26px; z-index: 50; overflow: hidden; }
+.vent.cal-open .cal-panel { display: block; }
+.cal-title { font-size: .72rem; letter-spacing: .14em; padding: 10px 14px; background: #000; color: #c6ff00;
+  text-transform: uppercase; display: flex; justify-content: space-between; }
+.cal-title span:last-child { color: #fff; }
+.cal-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 10px;
+  padding: 10px 14px; border-bottom: 4px solid #000; }
+.cal-row:last-child { border-bottom: none; }
+.cal-row:nth-child(even) { background: #eef7d9; }
+.cal-label { font-size: .7rem; }
+.cal-row input { width: 86px; padding: 7px 8px; box-shadow: 3px 3px 0 #000; }
+.cal-row button { padding: 7px 10px; box-shadow: 3px 3px 0 #000; font-size: .8rem; }
+@media (max-width: 800px) { header { flex-direction: column; align-items: flex-start; } .lanes { grid-template-columns: 1fr; } }
+</style></head><body>
+<header>
+  <div><p class="eyebrow">AC VENT CONTROL — V2.1</p><h1>HOUSE<br>BREATHING</h1>
+  <p>Sticker cards. Calibration collapsed by default, zero grid reflow.</p></div>
+  <aside><b>4 ONLINE</b><b>1 OFFLINE</b><b>MOCK MODE</b></aside>
+</header>
+<section class="lanes">
+  <div class="rail">
+    <button onclick="armBulk(this)">ARM BULK</button>
+    <button class="bulk" disabled>OPEN ALL</button>
+    <button class="bulk" disabled>CLOSE ALL</button>
+    <button>REFRESH</button>
+    <div class="note">TRY IT: open calibration on a few cards — neighbors never move. Cards are a fixed 300px; the panel floats OVER the grid, not in it.</div>
+  </div>
+  <div class="cards">
+<article class="vent">
+  <span class="pin"></span>
+  <div class="card-head">
+    <div class="row">
+      <h2>Study Room<br><span style="font-size:.75rem">VENT 1</span></h2>
+      <span class="pill open">OPEN</span>
+    </div>
+    <p class="state">Comfy airflow</p>
+    <div class="actions">
+      <button data-action="open" onclick="toggleVent(this)">OPEN</button>
+      <button data-action="close" onclick="toggleVent(this)">CLOSE</button>
+    </div>
+  </div>
+  <div class="cal-toggle">
+    <button onclick="toggleCal(this)">CALIBRATION ▾ OPEN</button>
+  </div>
+  
+    <div class="cal-panel">
+      <div class="cal-title"><span>Calibration</span><span>Study Room / Vent 1</span></div>
+      <div class="cal-row">
+        <span class="cal-label">OPEN POS<br><span class="entity" style="margin-top:4px">number.study_room_vent_1_set_open_position</span></span>
+        <input type="number" value="-0.60" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+      <div class="cal-row">
+        <span class="cal-label">CLOSED POS<br><span class="entity" style="margin-top:4px">number.study_room_vent_1_set_closed_position</span></span>
+        <input type="number" value="-0.15" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+    </div>
+</article>
+<article class="vent">
+  <span class="pin"></span>
+  <div class="card-head">
+    <div class="row">
+      <h2>Great Room<br><span style="font-size:.75rem">VENT 1</span></h2>
+      <span class="pill closed">CLOSED</span>
+    </div>
+    <p class="state">Restricted</p>
+    <div class="actions">
+      <button data-action="open" onclick="toggleVent(this)">OPEN</button>
+      <button data-action="close" onclick="toggleVent(this)">CLOSE</button>
+    </div>
+  </div>
+  <div class="cal-toggle">
+    <button onclick="toggleCal(this)">CALIBRATION ▾ OPEN</button>
+  </div>
+  
+    <div class="cal-panel">
+      <div class="cal-title"><span>Calibration</span><span>Great Room / Vent 1</span></div>
+      <div class="cal-row">
+        <span class="cal-label">OPEN POS<br><span class="entity" style="margin-top:4px">number.great_room_vent_1_set_open_position</span></span>
+        <input type="number" value="-0.50" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+      <div class="cal-row">
+        <span class="cal-label">CLOSED POS<br><span class="entity" style="margin-top:4px">number.great_room_vent_1_set_closed_position</span></span>
+        <input type="number" value="0.00" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+    </div>
+</article>
+<article class="vent">
+  <span class="pin"></span>
+  <div class="card-head">
+    <div class="row">
+      <h2>Master Bedroom<br><span style="font-size:.75rem">VENT 1</span></h2>
+      <span class="pill open">OPEN</span>
+    </div>
+    <p class="state">Comfy airflow</p>
+    <div class="actions">
+      <button data-action="open" onclick="toggleVent(this)">OPEN</button>
+      <button data-action="close" onclick="toggleVent(this)">CLOSE</button>
+    </div>
+  </div>
+  <div class="cal-toggle">
+    <button onclick="toggleCal(this)">CALIBRATION ▾ OPEN</button>
+  </div>
+  
+    <div class="cal-panel">
+      <div class="cal-title"><span>Calibration</span><span>Master Bedroom / Vent 1</span></div>
+      <div class="cal-row">
+        <span class="cal-label">OPEN POS<br><span class="entity" style="margin-top:4px">number.master_bedroom_vent_1_set_open_position</span></span>
+        <input type="number" value="-0.65" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+      <div class="cal-row">
+        <span class="cal-label">CLOSED POS<br><span class="entity" style="margin-top:4px">number.master_bedroom_vent_1_set_closed_position</span></span>
+        <input type="number" value="-0.20" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+    </div>
+</article>
+<article class="vent">
+  <span class="pin"></span>
+  <div class="card-head">
+    <div class="row">
+      <h2>Office Room<br><span style="font-size:.75rem">VENT 1</span></h2>
+      <span class="pill unavailable">UNAVAILABLE</span>
+    </div>
+    <p class="state">Needs ESPHome check</p>
+    <div class="actions">
+      <button data-action="open" onclick="toggleVent(this)" disabled>OPEN</button>
+      <button data-action="close" onclick="toggleVent(this)" disabled>CLOSE</button>
+    </div>
+  </div>
+  <div class="cal-toggle">
+    <button onclick="toggleCal(this)">CALIBRATION ▾ OPEN</button>
+  </div>
+  
+    <div class="cal-panel">
+      <div class="cal-title"><span>Calibration</span><span>OFFLINE</span></div>
+      <div class="cal-row"><span class="cal-label">OFFLINE — entity states unavailable</span></div>
+    </div>
+</article>
+<article class="vent">
+  <span class="pin"></span>
+  <div class="card-head">
+    <div class="row">
+      <h2>Kitchen<br><span style="font-size:.75rem">VENT 1</span></h2>
+      <span class="pill open">OPEN</span>
+    </div>
+    <p class="state">Comfy airflow</p>
+    <div class="actions">
+      <button data-action="open" onclick="toggleVent(this)">OPEN</button>
+      <button data-action="close" onclick="toggleVent(this)">CLOSE</button>
+    </div>
+  </div>
+  <div class="cal-toggle">
+    <button onclick="toggleCal(this)">CALIBRATION ▾ OPEN</button>
+  </div>
+  
+    <div class="cal-panel">
+      <div class="cal-title"><span>Calibration</span><span>Kitchen / Vent 1</span></div>
+      <div class="cal-row">
+        <span class="cal-label">OPEN POS<br><span class="entity" style="margin-top:4px">number.kitchen_vent_1_set_open_position</span></span>
+        <input type="number" value="-0.60" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+      <div class="cal-row">
+        <span class="cal-label">CLOSED POS<br><span class="entity" style="margin-top:4px">number.kitchen_vent_1_set_closed_position</span></span>
+        <input type="number" value="-0.09" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+    </div>
+</article>
+<article class="vent">
+  <span class="pin"></span>
+  <div class="card-head">
+    <div class="row">
+      <h2>Loft<br><span style="font-size:.75rem">VENT 1</span></h2>
+      <span class="pill closed">CLOSED</span>
+    </div>
+    <p class="state">Restricted</p>
+    <div class="actions">
+      <button data-action="open" onclick="toggleVent(this)">OPEN</button>
+      <button data-action="close" onclick="toggleVent(this)">CLOSE</button>
+    </div>
+  </div>
+  <div class="cal-toggle">
+    <button onclick="toggleCal(this)">CALIBRATION ▾ OPEN</button>
+  </div>
+  
+    <div class="cal-panel">
+      <div class="cal-title"><span>Calibration</span><span>Loft / Vent 1</span></div>
+      <div class="cal-row">
+        <span class="cal-label">OPEN POS<br><span class="entity" style="margin-top:4px">number.loft_vent_1_set_open_position</span></span>
+        <input type="number" value="-0.67" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+      <div class="cal-row">
+        <span class="cal-label">CLOSED POS<br><span class="entity" style="margin-top:4px">number.loft_vent_1_set_closed_position</span></span>
+        <input type="number" value="-0.19" step="0.01" min="-1" max="1">
+        <button onclick="saved(this)">SAVE</button>
+      </div>
+    </div>
+</article></div>
+</section>
+
+<script>
+function toggleVent(btn){
+  const card = btn.closest('.vent');
+  const pill = card.querySelector('.pill');
+  const open = btn.dataset.action === 'open';
+  pill.textContent = open ? 'OPEN' : 'CLOSED';
+  pill.className = 'pill ' + (open ? 'open' : 'closed');
+  const st = card.querySelector('.state');
+  if (st) st.textContent = open ? 'Comfy airflow' : 'Restricted';
+}
+function armBulk(btn){
+  const armed = btn.dataset.armed !== 'true';
+  btn.dataset.armed = armed;
+  btn.textContent = armed ? 'BULK ARMED!' : 'ARM BULK';
+  document.querySelectorAll('.bulk').forEach(b => b.disabled = !armed);
+}
+function saved(btn){
+  btn.textContent = 'SAVED!';
+  setTimeout(() => btn.textContent = 'SAVE', 900);
+}
+function toggleCal(btn){
+  const card = btn.closest('.vent');
+  const panel = card.querySelector('.cal-panel');
+  const isOpen = panel.classList.toggle('open');
+  card.classList.toggle('cal-open', isOpen);
+  btn.textContent = isOpen ? 'CALIBRATION ▴ CLOSE' : 'CALIBRATION ▾ OPEN';
+}
+</script>
+</body></html>
