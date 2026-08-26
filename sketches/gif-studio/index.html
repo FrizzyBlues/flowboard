@@ -31,13 +31,16 @@ html[data-theme='light'] {
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { background: var(--bg); font-family: var(--font-brutal); color: var(--card-ink);
-  display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+  width: 340px; height: 360px; overflow: hidden; position: relative; }
 body::before { content:''; position: fixed; inset: 0; pointer-events: none;
   background: linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
               linear-gradient(var(--grid-line) 1px, transparent 1px); background-size: 28px 28px; }
 
-.vent { height: 230px; border: 5px solid #000; box-shadow: 8px 8px 0 #000; background: var(--card-a);
-  border-radius: 22px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+/* card pinned at exact coordinates: 340x360 frame, card 250x230 at (45, 55)
+   leaves room for ribbon overhang and shadow */
+.vent { position: absolute; left: 45px; top: 55px; width: 250px; height: 230px;
+  border: 5px solid #000; box-shadow: 8px 8px 0 #000; background: var(--card-a);
+  border-radius: 22px; overflow: hidden; display: flex; flex-direction: column; }
 .pin { position: absolute; right: 14px; top: -13px; width: 26px; height: 26px; border: 4px solid #000;
   border-radius: 50%; background: var(--pink); z-index: 6; }
 .controls { padding: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0; }
@@ -90,9 +93,9 @@ body::before { content:''; position: fixed; inset: 0; pointer-events: none;
     <div class="row"><h2 class="vent-name">Study Room</h2></div>
     <div class="body-zone">
       <div class="sensor-col">
-        <span class="chip chip-temp"><b>&#127777;</b> 72.4&deg;F</span>
-        <span class="chip chip-hum"><b>&#128167;</b> 41%</span>
-        <span class="chip chip-batt"><b>&#128267;</b> 40%</span>
+        <span class="chip chip-temp"><b>T</b> 72.4&deg;F</span>
+        <span class="chip chip-hum"><b>H</b> 41%</span>
+        <span class="chip chip-batt"><b>B</b> 40%</span>
       </div>
       <button class="register" id="reg" type="button">
         <span class="slats"><i></i><i></i><i></i><i></i><i></i></span>
@@ -151,6 +154,8 @@ if (params.has('t')) {
       var opacity = 0, tx = -10, sx = 0.4;
       if (p < 0.3) { var q1 = p / 0.3; opacity = q1 * 0.85; tx = -10 + q1 * 20; sx = 0.4 + q1 * 0.6; }
       else { var q2 = (p - 0.3) / 0.7; opacity = 0.85 * (1 - q2); tx = 10 + q2 * 110; sx = 1 + q2 * 0.15; }
+      // must kill the CSS animation — it overrides inline styles in the cascade
+      winds[j].style.animation = 'none';
       winds[j].style.opacity = opacity;
       winds[j].style.transform = 'translateX(' + tx + 'px) scaleX(' + sx + ')';
     }
