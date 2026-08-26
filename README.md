@@ -1,111 +1,174 @@
-# Flowboard
+<div align="center">
 
-Docker-packaged React/TypeScript dashboard for managing ESPHome AC vents exposed through Home Assistant.
+# FLOWBOARD
 
-Full setup, Docker, Home Assistant entity assumptions, safety notes, and troubleshooting live in [docs/AC_VENT_UI_RUNBOOK.md](docs/AC_VENT_UI_RUNBOOK.md).
+**Every vent. One board. Total airflow control.**
 
-## What it does
+A neo-brutalist web dashboard for DIY servo-actuated AC vents —
+[ESPHome](https://esphome.io/) + [Home Assistant](https://www.home-assistant.io/) underneath,
+a fun tactile board on top.
 
-- Discovers vent switches whose entity IDs end with `_vent_switch`.
-- Groups vents by room from entity IDs like `switch.study_room_vent_1_vent_switch`.
-- Proxies all Home Assistant traffic through the Node/Express server so `HASS_TOKEN` never reaches the browser.
-- Shows open, closed, unknown, unavailable, and missing-calibration states visibly.
-- Supports safe mock mode for development and tests; mock commands update in-memory fixture state only.
-- Provides deliberate per-vent calibration controls for `number.*_set_open_position` and `number.*_set_closed_position`.
+</div>
 
-## Runtime configuration
+---
 
-Live Home Assistant mode uses environment variables at server runtime only:
+![Flowboard dashboard](docs/screenshot.png)
 
-| Variable | Purpose |
-| --- | --- |
-| `HASS_URL` | Home Assistant base URL, e.g. `http://homeassistant.local:8123` |
-| `HASS_TOKEN` | Home Assistant long-lived access token |
-| `PORT` | App server port, default `8788` |
-| `MOCK_HASS=true` | Force mock mode; no Home Assistant calls are made |
+Flowboard turns a houseful of 3D-printed, ESP8266-driven AC vent dampers into a single
+screen you actually enjoy using: click a damper register to open or close it, watch the
+slats animate and the wind drift, tune each vent's servo endpoints, and see room
+temperature, humidity, and sensor battery at a glance.
 
-Aliases are also supported for common deployment conventions: `HA_URL` / `HOME_ASSISTANT_URL`, `HA_TOKEN` / `HOME_ASSISTANT_TOKEN`, `MOCK_HA=true`, or `APP_MODE=mock`.
+## Highlights
 
-If `HASS_URL` or `HASS_TOKEN` is missing, or a mock flag is set, the server falls back to mock mode. Check `GET /api/health` to confirm whether the app is in `live` or `mock` mode; the token is never exposed in the response.
+- 🌀 **The register IS the button** — animated damper slats tilt open/closed with a
+  soft cloud-puff wind overlay; corner ribbons tag each vent (V1/V2/V3) and its status
+- 🌡️ **Room sensors on every card** — temperature / humidity / battery chips, one
+  room sensor shared across all its vents, low-battery warnings
+- 🎛️ **Flip-in-place calibration** — tap CALIBRATE to tune open/closed servo
+  endpoints without ever shifting the grid layout
+- 🗂️ **4×4 single-screen grid** — every vent visible at once, no scrolling
+- 🔍 **Left-rail filtering** — by room, online/offline status, plus a top search bar
+- 🌗 **Light / dark / system themes** with persistence and no flash-of-wrong-theme
+- ⚡ **Optimistic UI** — instant slat feedback, then background verification polling
+  that absorbs ESPHome/HA state-report lag
+- 🛡️ **Guarded bulk actions** — arm-before-use whole-home open/close
+- 🧪 **Mock mode** — run the full UI against fake data without touching real vents
+- 📦 **Single Docker image** — server-side HA proxy keeps your token out of the browser
 
-## Development
+## The hardware
 
-```bash
-npm install
-npm run dev:full
+Flowboard is the software half of a DIY smart-vent system. The mechanical design,
+assembly guide, and flashing walkthrough live on Maker World:
+
+> 🖨️ **[AC Vent Control — 3D model & build guide](https://makerworld.com/en/models/1444859-ac-vent-control#profileId-1504428)**
+
+### Parts per vent
+
+| Part | Example |
+|---|---|
+| Floor register (4×10") | [Adjustable steel floor register](https://www.amazon.com/dp/B0D8V61M4N) |
+| MCU | [ESP8266 D1 Mini](https://www.amazon.com/gp/product/B0BKSKV54X) |
+| Servo | [Micro servo (9g class)](https://www.amazon.com/dp/B072V529YD) |
+| 3D-printed parts | Main body, servo gear, cover, teeth, hole guide — from the Maker World model |
+
+### Room climate sensing (optional)
+
+Flowboard displays temperature, humidity, and battery per room if you add a sensor.
+Any Zigbee temperature/humidity sensor paired with Home Assistant works — it shows up
+on every vent card in that room. Match by naming the entities
+`sensor.<room>_temperature` / `sensor.<room>_humidity` (or any device whose friendly
+name contains the room name).
+
+### Wiring (from the build guide)
+
+Servo → D1 Mini: **Red = 3V3, Black = GND, Yellow = D4** (PWM).
+
+## How it works
+
+```
+┌──────────┐   REST API    ┌─────────────┐   REST API    ┌──────────────────┐
+│ Browser  │ ────────────▶ │  Flowboard  │ ────────────▶ │  Home Assistant  │
+│ (Vite +  │               │ Express     │               │  + ESPHome       │
+│  React)  │ ◀──────────── │ server      │ ◀──────────── │  ESP8266 vents   │
+└──────────┘   JSON        └─────────────┘   JSON        └──────────────────┘
 ```
 
-Vite serves the browser app and proxies `/api` to the Express server on port `8788`.
+The Express server holds your Home Assistant token (env vars only — never shipped to
+the browser, never baked into the Docker image) and proxies vent discovery, switch
+commands, and calibration writes. Vent cards are discovered automatically from HA
+entity IDs following this convention:
 
-Useful commands:
+| Purpose | Entity pattern | Example |
+|---|---|---|
+| Vent control | `switch.<room>_vent_<n>_vent_switch` | `switch.study_room_vent_1_vent_switch` |
+| Open endpoint | `number.<room>_vent_<n>_set_open_position` | `number.study_room_vent_1_set_open_position` |
+| Closed endpoint | `number.<room>_vent_<n>_set_closed_position` | `number.study_room_vent_1_set_closed_position` |
+| Room sensors | `sensor.<room>_temperature` / `_humidity` / `_battery` | `sensor.study_room_temperature` |
 
-```bash
-npm test
-npm run lint
-npm run typecheck
-npm run build
-npm run server
-```
+A ready-to-flash ESPHome config matching this convention is in
+[`docs/esphome-reference.yaml`](docs/esphome-reference.yaml) (credentials placeholdered —
+generate your own keys).
 
-## Docker
+## Quick start
 
-Build and run without secrets at build time:
+### Docker (recommended)
 
 ```bash
 docker build -t flowboard:local .
-docker run --rm -p 8788:8788 \
+docker run -d --name flowboard -p 8788:8788 \
   -e HASS_URL=http://homeassistant.local:8123 \
-  -e HASS_TOKEN=replace-with-token \
+  -e HASS_TOKEN=replace-with-home-assistant-long-lived-access-token \
+  --restart unless-stopped \
   flowboard:local
 ```
 
-Or start from the compose example:
+Open `http://localhost:8788`. The header stat reads **LIVE** when connected,
+**MOCK MODE** when credentials are absent (safe demo with fake data).
+
+Create the token in Home Assistant: profile → **Security** → **Long-Lived Access
+Tokens** → Create Token.
+
+> ⚠️ Store the token in an uncommitted `.env` file or your container runtime —
+> see [`docker-compose.example.yml`](docker-compose.example.yml). Never bake it
+> into the image.
+
+### Local development
 
 ```bash
-cp docker-compose.example.yml docker-compose.yml
-# edit HASS_URL and HASS_TOKEN in docker-compose.yml
-docker compose up --build
+npm install
+npm run dev:full        # Vite dev server (:5173) + Express (:8788), proxies /api
 ```
 
-For safe preview mode:
+Useful scripts:
 
-```bash
-docker run --rm -p 8788:8788 -e MOCK_HASS=true flowboard:local
+| Command | What it does |
+|---|---|
+| `npm test` | Vitest suite (discovery logic + UI behavior) |
+| `npm run build` | Type-check + production bundle |
+| `MOCK_HA=true npm run server` | API server alone with mock data |
+
+## Safety notes
+
+- Bulk open/close requires **arming** first — no accidental whole-home commands
+- The server rejects control requests for non-vent entities and out-of-range
+  calibration values (−1.0 … 1.0 servo range)
+- Unavailable vents show clearly (pink ribbon + disabled register) and refuse commands
+- Mock mode (`MOCK_HA=true`) exercises the entire UI with zero HA calls — keep it on
+  for demos and screenshots
+- Home Assistant's IP ban (`login_attempts_threshold`) counts failed auth from your
+  whole network — test tokens carefully, not repeatedly
+
+## Project layout
+
+```
+├── src/            React UI (cards, rail, themes, sensor chips)
+├── server/         Express HA proxy, vent+sensor discovery, mock data
+├── shared/         Types shared by client and server
+├── docs/           ESPHome reference config, runbook, design history
+├── sketches/       Interactive HTML design iterations (fan cards → ribbons)
+└── Dockerfile      Multi-stage build → ~100MB alpine image
 ```
 
-Keep `HASS_TOKEN` in runtime environment, an uncommitted local `.env`, or a compose override. Do not bake it into the Docker image.
+## Troubleshooting
 
-## Home Assistant entity matching
+| Symptom | Fix |
+|---|---|
+| Header says MOCK MODE in prod | `HASS_URL`/`HASS_TOKEN` missing or `MOCK_HA=true` is set — check `/api/health` |
+| Vent missing from the board | Its entities must match the `switch.<room>_vent_<n>_vent_switch` pattern |
+| Vent shows UNAVAILABLE | The ESPHome device is offline — check power/Wi-Fi; Flowboard disables its controls |
+| No temp/humidity chips | No matching `sensor.<room>_*` entities; check entity naming |
+| Calibration save rejected | Values must be numeric and within the vent's min/max (−1 … 1 by default) |
 
-The server reads Home Assistant states and groups vents by entity ID suffix:
+More detail in [`docs/FLOWBOARD_RUNBOOK.md`](docs/FLOWBOARD_RUNBOOK.md).
 
-| Entity kind | Pattern | Example |
-| --- | --- | --- |
-| Vent switch | `switch.<base>_vent_switch` | `switch.study_room_vent_1_vent_switch` |
-| Optional silent switch | `switch.<base>_vent_switch_silent` | `switch.study_room_vent_1_vent_switch_silent` |
-| Open calibration number | `number.<base>_set_open_position` | `number.study_room_vent_1_set_open_position` |
-| Closed calibration number | `number.<base>_set_closed_position` | `number.study_room_vent_1_set_closed_position` |
+## Credits
 
-The shared `<base>` ties a vent switch to its calibration numbers. For example, `study_room_vent_1` displays as room `Study Room`, vent `Vent 1`.
+- Hardware design & assembly guide: the
+  [AC Vent Control model on Maker World](https://makerworld.com/en/models/1444859-ac-vent-control#profileId-1504428)
+- Built on [ESPHome](https://esphome.io/), [Home Assistant](https://www.home-assistant.io/),
+  [React](https://react.dev/), [Vite](https://vitejs.dev/), and [Express](https://expressjs.com/)
 
-State mapping is `on` → open, `off` → closed, `unknown` → unknown, and `unavailable` → unavailable. Missing calibration numbers and ungrouped number entities are returned in `/api/vents` diagnostics.
+## License
 
-## Safe operation and troubleshooting
-
-- Use `MOCK_HASS=true` for demos, screenshots, and development when you do not want Home Assistant calls.
-- `GET /api/vents` is read-only.
-- Opening/closing a vent in live mode calls Home Assistant `switch.turn_on` / `switch.turn_off`.
-- Saving calibration in live mode calls `number.set_value` after server-side range validation.
-- Open/close controls are disabled for unavailable vents.
-- Bulk open/close controls require arming first.
-
-If vents are missing, verify the Home Assistant entity IDs match the patterns above and inspect `/api/vents` diagnostics. If vents are unavailable, restore the ESPHome device or HA integration first; the app leaves unavailable vents visible but disables live controls for them.
-
-## API
-
-- `GET /api/health` reports mode and whether HA config is present. It never exposes the token.
-- `GET /api/vents` returns room-grouped normalized vents plus diagnostics.
-- `POST /api/vents/action` with `{ "entityId": "switch...", "action": "open" | "close" }` calls `switch.turn_on` or `switch.turn_off` in live mode.
-- `POST /api/vents/calibration` with `{ "entityId": "number...", "value": -0.6 }` calls `number.set_value` after range validation.
-
-Mutating endpoints return a refreshed dashboard response after the service call. Tests and mock mode never toggle real vents.
+MIT
