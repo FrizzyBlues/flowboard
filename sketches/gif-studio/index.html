@@ -1,0 +1,174 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>Flowboard demo</title>
+<script>
+  // set theme before first paint (screenshot-safe)
+  (function () {
+    var m = location.search.match(/[?&]theme=(light|dark)/);
+    document.documentElement.dataset.theme = m ? m[1] : 'dark';
+  })();
+</script>
+<style>
+:root, html[data-theme='dark'] {
+  --bg: #101010; --card-a: #232329; --card-c: #2a2433; --card-ink: #f0f0f4;
+  --register-bg: #31313a; --slat-closed: #e6e6ec; --slat-open: #17a3c0; --slat-pending: #8a8a94;
+  --wind-puff: rgba(47,212,242,.5); --pink: #ff5bd1; --green: #6bff5c; --acid: #c6ff00;
+  --pill-closed-bg: #3a3a42; --pill-ink: #ddd; --chip-bg: #1c1c22; --chip-ink: #f2f2f5;
+  --chip-temp: #ff7a59; --chip-hum: #2fd4f2; --chip-batt: #c6ff00; --accent-ink: #000;
+  --grid-line: rgba(255,255,255,.05); --cal-bg: #1e1e24;
+  --font-brutal: 'Arial Black', Impact, 'Helvetica Neue', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Courier New', monospace;
+  color-scheme: dark;
+}
+html[data-theme='light'] {
+  --bg: #f3f0e8; --card-a: #e9fdff; --card-c: #ffe9fb; --card-ink: #0a0a0a;
+  --register-bg: #ffffff; --slat-closed: #111111; --slat-open: #0a6a7a; --slat-pending: #555555;
+  --wind-puff: rgba(0,183,212,.45); --pill-closed-bg: #b9b9b9; --pill-ink: #0a0a0a;
+  --chip-bg: #ffffff; --chip-ink: #0a0a0a;
+  --chip-temp: #e05a33; --chip-hum: #0a8fae; --chip-batt: #7da800;
+  --grid-line: rgba(0,0,0,.06); --cal-bg: #f6f4ee; --accent-ink: #000;
+  color-scheme: light;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); font-family: var(--font-brutal); color: var(--card-ink);
+  display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+body::before { content:''; position: fixed; inset: 0; pointer-events: none;
+  background: linear-gradient(90deg, var(--grid-line) 1px, transparent 1px),
+              linear-gradient(var(--grid-line) 1px, transparent 1px); background-size: 28px 28px; }
+
+.vent { height: 230px; border: 5px solid #000; box-shadow: 8px 8px 0 #000; background: var(--card-a);
+  border-radius: 22px; position: relative; overflow: hidden; display: flex; flex-direction: column; }
+.pin { position: absolute; right: 14px; top: -13px; width: 26px; height: 26px; border: 4px solid #000;
+  border-radius: 50%; background: var(--pink); z-index: 6; }
+.controls { padding: 12px; flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.row { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; flex-shrink: 0; }
+.vent-name { font-size: 1.05rem; line-height: 1.1; color: var(--card-ink); }
+.body-zone { flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 0; }
+.sensor-col { display: flex; flex-direction: column; gap: 6px; flex-shrink: 0; z-index: 5; }
+.chip { display: inline-flex; align-items: center; gap: 5px; border: 3px solid #000; padding: 4px 7px;
+  background: var(--chip-bg); color: var(--chip-ink); box-shadow: 3px 3px 0 #000;
+  font-family: var(--font-mono); font-weight: 900; font-size: .64rem; white-space: nowrap; }
+.chip-temp b { color: var(--chip-temp); font-weight: 900; }
+.chip-hum b { color: var(--chip-hum); } .chip-batt b { color: var(--chip-batt); }
+.foot { border-top: 5px solid #000; background: var(--cal-bg); border-radius: 0 0 17px 17px; padding: 7px 10px; flex-shrink: 0; }
+.foot span { display: block; width: 100%; background: #000; color: var(--acid); font-size: .68rem;
+  letter-spacing: .1em; padding: 7px 8px; border: 3px solid #000; text-align: center; }
+
+.register { position: relative; width: 128px; height: 80px; border: 5px solid #000; border-radius: 11px;
+  background: var(--register-bg); box-shadow: 6px 6px 0 #000; cursor: pointer; padding: 0; font: inherit; }
+.slats { position: absolute; inset: 10px; display: grid; grid-template-rows: repeat(5, 1fr); gap: 5px; }
+.slats i { background: var(--slat-closed); border-radius: 4px; transform-origin: left center; }
+.register.is-open .slats i { transform: rotate(-38deg); background: var(--slat-open); }
+.wind { position: absolute; inset: 0; pointer-events: none; z-index: 3; }
+.wind i { position: absolute; width: 34px; height: 12px; border-radius: 20px;
+  background: var(--wind-puff); filter: blur(1px); opacity: 0; }
+@keyframes drift {
+  0% { opacity: 0; transform: translateX(-10px) scaleX(.4); }
+  30% { opacity: .85; }
+  100% { opacity: 0; transform: translateX(120px) scaleX(1.15); }
+}
+.ribbon-vent { position: absolute; top: -15px; left: -11px; z-index: 5;
+  font-family: var(--font-brutal); font-weight: 900; font-size: .78rem;
+  letter-spacing: .04em; background: #ffde00; color: #000;
+  border: 4px solid #000; padding: 4px 8px;
+  transform: rotate(-7deg); box-shadow: 3px 3px 0 #000; pointer-events: none; }
+.ribbon-state { position: absolute; top: -15px; right: -11px; z-index: 5;
+  width: 86px; height: 26px; display: flex; align-items: center; justify-content: center;
+  border: 4px solid #000; padding: 0 4px; transform: rotate(7deg);
+  box-shadow: 3px 3px 0 #000; pointer-events: none;
+  background: var(--pill-closed-bg); color: var(--pill-ink); }
+.ribbon-state-text { display: block; width: 100%; text-align: center;
+  font-family: var(--font-brutal); font-weight: 900; letter-spacing: .02em;
+  font-size: .68rem; line-height: 1; white-space: nowrap; overflow: hidden; }
+.ribbon-state.open { background: var(--green); color: var(--accent-ink); }
+.ribbon-state.pending { background: var(--acid); color: var(--accent-ink); }
+</style></head>
+<body>
+<div class="vent" id="card">
+  <span class="pin"></span>
+  <div class="controls">
+    <div class="row"><h2 class="vent-name">Study Room</h2></div>
+    <div class="body-zone">
+      <div class="sensor-col">
+        <span class="chip chip-temp"><b>&#127777;</b> 72.4&deg;F</span>
+        <span class="chip chip-hum"><b>&#128167;</b> 41%</span>
+        <span class="chip chip-batt"><b>&#128267;</b> 40%</span>
+      </div>
+      <button class="register" id="reg" type="button">
+        <span class="slats"><i></i><i></i><i></i><i></i><i></i></span>
+        <span class="wind"><i></i><i></i><i></i><i></i></span>
+        <span class="ribbon ribbon-vent">V1</span>
+        <span class="ribbon ribbon-state" id="state"><span class="ribbon-state-text" id="stateText">CLOSED</span></span>
+      </button>
+    </div>
+  </div>
+  <div class="foot"><span>CALIBRATE</span></div>
+</div>
+<script>
+var params = new URLSearchParams(location.search);
+var LOOP = 5600;
+var reg = document.getElementById('reg');
+var state = document.getElementById('state');
+var text = document.getElementById('stateText');
+
+function setPhase(open, pending) {
+  reg.classList.toggle('is-open', open);
+  state.className = 'ribbon ribbon-state' + (pending ? ' pending' : open ? ' open' : '');
+  text.textContent = pending ? (open ? 'OPENING\u2026' : 'CLOSING\u2026') : open ? 'OPEN' : 'CLOSED';
+  text.style.fontSize = pending ? '.56rem' : '.68rem';
+}
+
+if (params.has('t')) {
+  // Frame-capture mode: freeze at offset t. All styles are applied inline (no CSS
+  // transitions) so the screenshot matches the animation frame exactly.
+  var t = Number(params.get('t')) % LOOP;
+  var open = t >= 1000 && t < 4400;
+  var pending = (t >= 1000 && t < 1600) || (t >= 3800 && t < 4400);
+  var slatDelays = [0, 50, 100, 150, 200];
+  var windDelays = [0, 350, 700, 1050];
+  var slats = reg.querySelectorAll('.slats i');
+  var winds = reg.querySelectorAll('.wind i');
+
+  function slatFrac(i) {
+    // fraction open (0..1) at time t for slat i
+    if (t < 1000) return 0;
+    if (t < 3800) return Math.min(1, Math.max(0, (t - 1000 - slatDelays[i]) / 450));
+    return Math.max(0, 1 - Math.max(0, (t - 3800 - slatDelays[i]) / 450));
+  }
+
+  slats.forEach && slats.forEach(function (s, i) {});
+  for (var i = 0; i < slats.length; i++) {
+    var f = slatFrac(i);
+    slats[i].style.transform = 'rotate(' + (-38 * f) + 'deg)';
+    slats[i].style.background = 'color-mix(in srgb, var(--slat-closed) ' + ((1 - f) * 100) + '%, var(--slat-open))';
+  }
+
+  if (open && !pending) {
+    var openT = (t - 1600) % 1400;
+    for (var j = 0; j < winds.length; j++) {
+      var local = ((openT - windDelays[j]) % 1400 + 1400) % 1400;
+      var p = local / 1400;
+      var opacity = 0, tx = -10, sx = 0.4;
+      if (p < 0.3) { var q1 = p / 0.3; opacity = q1 * 0.85; tx = -10 + q1 * 20; sx = 0.4 + q1 * 0.6; }
+      else { var q2 = (p - 0.3) / 0.7; opacity = 0.85 * (1 - q2); tx = 10 + q2 * 110; sx = 1 + q2 * 0.15; }
+      winds[j].style.opacity = opacity;
+      winds[j].style.transform = 'translateX(' + tx + 'px) scaleX(' + sx + ')';
+    }
+  }
+
+  setPhase(open, pending);
+} else {
+  // Live loop mode (preview in browser)
+  function tick() {
+    var now = Date.now() % LOOP;
+    if (now < 1000) setPhase(false, false);
+    else if (now < 1600) setPhase(true, true);
+    else if (now < 3800) setPhase(true, false);
+    else if (now < 4400) setPhase(false, true);
+    else setPhase(false, false);
+  }
+  tick();
+  setInterval(tick, 100);
+}
+</script>
+</body></html>
