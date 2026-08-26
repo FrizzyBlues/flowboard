@@ -14,6 +14,13 @@ a fun tactile board on top.
 
 ![Flowboard dashboard](docs/screenshot.png)
 
+**Watch it work** — click a damper register and the slats tilt open, wind drifts
+across, and the status ribbon flips through OPENING → OPEN:
+
+| Dark | Light |
+|:---:|:---:|
+| ![Vent open/close animation — dark](docs/demo-dark.gif) | ![Vent open/close animation — light](docs/demo-light.gif) |
+
 Flowboard turns a houseful of 3D-printed, ESP8266-driven AC vent dampers into a single
 screen you actually enjoy using: click a damper register to open or close it, watch the
 slats animate and the wind drift, tune each vent's servo endpoints, and see room
