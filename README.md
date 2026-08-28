@@ -65,7 +65,8 @@ Flowboard displays temperature, humidity, and battery per room if you add a sens
 Any Zigbee temperature/humidity sensor paired with Home Assistant works — it shows up
 on every vent card in that room. Match by naming the entities
 `sensor.<room>_temperature` / `sensor.<room>_humidity` (or any device whose friendly
-name contains the room name).
+name contains the room name). If a Room's matched sensors belong to the wrong device,
+remap it with a Room Sensor Source — see [Configuration](#configuration).
 
 ### Wiring (from the build guide)
 
@@ -104,6 +105,7 @@ generate your own keys).
 ```bash
 docker build -t flowboard:local .
 docker run -d --name flowboard -p 8788:8788 \
+  -v "$(pwd)/config:/app/config:ro" \
   -e HASS_URL=http://homeassistant.local:8123 \
   -e HASS_TOKEN=replace-with-home-assistant-long-lived-access-token \
   --restart unless-stopped \
@@ -135,6 +137,41 @@ Useful scripts:
 | `npm run build` | Type-check + production bundle |
 | `MOCK_HA=true npm run server` | API server alone with mock data |
 
+## Configuration
+
+### Environment
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `HASS_URL` | Live mode | Home Assistant base URL |
+| `HASS_TOKEN` | Live mode | Long-lived access token — never bake into the image |
+| `PORT` | No | HTTP port; defaults to `8788` |
+| `MOCK_HA=true` | No | Force mock mode (no Home Assistant calls) |
+
+Also accepted: `MOCK_HASS`, `APP_MODE=mock`, `HA_URL`, `HOME_ASSISTANT_URL`, `HA_TOKEN`, `HOME_ASSISTANT_TOKEN`.
+
+If URL or token is missing (and mock is not forced), the server falls back to mock mode. Confirm with `GET /api/health`.
+
+### Room Sensor Source (`config/flowboard.json`)
+
+Keys and values are Room ids, not display names. A missing key means that Room uses its own sensors.
+
+```json
+{
+  "roomSensorSources": {
+    "kitchen": "hearth"
+  }
+}
+```
+
+The Docker image copies `config/` at build time. The Quick start `docker run` and both compose files bind-mount `./config` over `/app/config` so you can change mappings without rebuilding:
+
+```bash
+-v "$(pwd)/config:/app/config:ro"
+```
+
+If the file is missing or not valid JSON, Flowboard ignores it and uses an empty map (each Room keeps its own sensors). The server log line is `Flowboard config ignored`.
+
 ## Safety notes
 
 - Bulk open/close requires **arming** first — no accidental whole-home commands
@@ -149,6 +186,7 @@ Useful scripts:
 ## Project layout
 
 ```
+├── config/         flowboard.json (Room Sensor Source map)
 ├── src/            React UI (cards, rail, themes, sensor chips)
 ├── server/         Express HA proxy, vent+sensor discovery, mock data
 ├── shared/         Types shared by client and server
@@ -165,6 +203,7 @@ Useful scripts:
 | Vent missing from the board | Its entities must match the `switch.<room>_vent_<n>_vent_switch` pattern |
 | Vent shows UNAVAILABLE | The ESPHome device is offline — check power/Wi-Fi; Flowboard disables its controls |
 | No temp/humidity chips | No matching `sensor.<room>_*` entities; check entity naming |
+| Wrong climate on a Room | Check `config/flowboard.json` Room Sensor Source keys (Room ids, not display names). Invalid JSON is ignored — empty map, own sensors |
 | Calibration save rejected | Values must be numeric and within the vent's min/max (−1 … 1 by default) |
 
 More detail in [`docs/FLOWBOARD_RUNBOOK.md`](docs/FLOWBOARD_RUNBOOK.md).
