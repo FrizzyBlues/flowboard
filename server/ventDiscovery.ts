@@ -10,6 +10,7 @@ import type {
   VentState,
 } from '../shared/types.js';
 
+// Entity-id patterns implementing the Vent Catalog input contract.
 const SWITCH_RE = /^switch\.(.+)_vent_switch$/;
 const SILENT_SWITCH_RE = /^switch\.(.+)_vent_switch_silent$/;
 const OPEN_RE = /^number\.(.+)_set_open_position$/;
@@ -18,10 +19,17 @@ const DEFAULT_MIN = -1;
 const DEFAULT_MAX = 1;
 const DEFAULT_STEP = 0.01;
 
+/**
+ * Options for {@link buildVentCatalog}.
+ * `roomSensorSources` keys and values are Room ids, not display names.
+ * A missing key means that Room uses its own sensors.
+ */
 export interface VentCatalogOptions {
   mode: 'live' | 'mock';
   updatedAt?: string;
+  /** Defaults to true when `mode` is `live`. */
   connected?: boolean;
+  /** Room id → Room Sensor Source id. */
   roomSensorSources?: Record<string, string>;
 }
 
@@ -171,14 +179,17 @@ function discoverRoomSensors(states: HomeAssistantState[], roomId: string): Room
   return hasAny ? result : undefined;
 }
 
-export function discoverVents(states: HomeAssistantState[]): VentDevice[] {
-  return buildVentCatalog(states, { mode: 'mock' }).vents;
-}
-
-export function discoverVentDashboard(states: HomeAssistantState[], options: VentCatalogOptions): VentsResponse {
-  return buildVentCatalog(states, options);
-}
-
+/**
+ * Vent Catalog: Home Assistant states → {@link VentsResponse}.
+ *
+ * Input contract: a Vent is a switch `switch.<room>_vent_<n>_vent_switch`,
+ * with optional calibration numbers `number.<same>_set_open_position` and
+ * `number.<same>_set_closed_position`. `options.roomSensorSources` maps a
+ * Room id to the Room whose climate sensors should be shown.
+ *
+ * Matching heuristics (fallbacks, friendly names, battery prefix) stay in
+ * this implementation.
+ */
 export function buildVentCatalog(states: HomeAssistantState[], options: VentCatalogOptions): VentsResponse {
   const byEntity = new Map(states.map((state) => [state.entity_id, state]));
   const switchKeys = new Map<string, HomeAssistantState>();
@@ -302,6 +313,7 @@ export function buildVentCatalog(states: HomeAssistantState[], options: VentCata
   };
 }
 
+/** True if `value` is finite and within `[min, max]`. Pass the number entity's bounds; defaults are −1 and 1. */
 export function isNumberInRange(value: number, min = DEFAULT_MIN, max = DEFAULT_MAX): boolean {
   return Number.isFinite(value) && value >= min && value <= max;
 }

@@ -1,23 +1,23 @@
 import { describe, expect, it } from 'vitest';
-import { discoverVentDashboard, discoverVents } from './ventDiscovery.js';
+import { buildVentCatalog } from './ventDiscovery.js';
 import { mockStates } from './mockData.js';
 
-describe('discoverVents', () => {
+describe('buildVentCatalog', () => {
   it('groups ESPHome vent switches with calibration numbers', () => {
-    const vents = discoverVents(mockStates);
+    const { vents } = buildVentCatalog(mockStates, { mode: 'mock' });
     const study = vents.find((vent) => vent.id === 'study_room_vent_1');
     expect(study).toMatchObject({ roomName: 'Study Room', ventName: 'Vent 1', state: 'open', openPosition: -0.6, closedPosition: -0.15 });
   });
 
   it('marks unavailable vents safely', () => {
-    const vents = discoverVents(mockStates);
+    const { vents } = buildVentCatalog(mockStates, { mode: 'mock' });
     const office = vents.find((vent) => vent.id === 'office_room_vent_1');
     expect(office?.available).toBe(false);
     expect(office?.state).toBe('unavailable');
   });
 
   it('kitchen can borrow hearth sensors through injected room sensor sources', () => {
-    const dashboard = discoverVentDashboard(mockStates, { mode: 'mock', roomSensorSources: { kitchen: 'hearth' } });
+    const dashboard = buildVentCatalog(mockStates, { mode: 'mock', roomSensorSources: { kitchen: 'hearth' } });
     const kitchen = dashboard.vents.find((vent) => vent.id === 'kitchen_vent_1');
     expect(kitchen?.sensors).toMatchObject({
       temperature: 67.6,
@@ -28,7 +28,7 @@ describe('discoverVents', () => {
   });
 
   it('uses injected room sensor sources instead of hardcoded aliases', () => {
-    const dashboard = discoverVentDashboard(mockStates, {
+    const dashboard = buildVentCatalog(mockStates, {
       mode: 'mock',
       roomSensorSources: { kitchen: 'study_room' },
     });
@@ -42,7 +42,7 @@ describe('discoverVents', () => {
   });
 
   it('joins room climate sensors to vents and shares them across a room', () => {
-    const vents = discoverVents(mockStates);
+    const { vents } = buildVentCatalog(mockStates, { mode: 'mock' });
     // study room has temp/hum/battery sensors
     const study = vents.find((vent) => vent.id === 'study_room_vent_1');
     expect(study?.sensors).toMatchObject({

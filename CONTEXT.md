@@ -18,4 +18,4 @@ The room whose climate sensors should be displayed for another room. Use this wh
 
 ### Vent Catalog
 
-The module that turns raw Home Assistant states into Flowboard's `VentsResponse`: vents, rooms, calibration values, room sensors, and diagnostics. Its interface should stay small; Home Assistant naming conventions belong in its implementation.
+The module that turns raw Home Assistant states into a `VentsResponse`. Callers pass states plus Room Sensor Source mappings; Home Assistant naming conventions belong in its implementation.
