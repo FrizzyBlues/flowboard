@@ -149,7 +149,7 @@ It runs when a **non-draft** pull request targeting **`main`** is:
 - marked ready for review
 - reopened
 
-It does **not** run on later pushes. After you push, merge stays blocked until CI is green on the new HEAD. Comment **`/check`** (exactly that, nothing else) on the PR to run it again. A `check` label may appear and disappear; that is how the re-run is attached to the PR. In-flight runs for the same PR are cancelled.
+It does **not** run on later pushes. After you push, merge stays blocked until CI is green on the new HEAD. Comment **`/check`** (exactly that, nothing else) on the PR to run it again. That dispatches the same `ci` workflow on the PR branch. In-flight runs for the same PR (or branch) are cancelled.
 
 `/check` is ignored on drafts, on PRs not into `main`, and on comments from anyone who is not the repo owner, an org member, or a collaborator.
 

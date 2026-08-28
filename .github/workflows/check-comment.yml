@@ -5,8 +5,8 @@ on:
     types: [created]
 
 permissions:
-  pull-requests: write
-  issues: write
+  actions: write
+  pull-requests: read
 
 jobs:
   dispatch:
@@ -16,7 +16,7 @@ jobs:
       startsWith(github.event.comment.body, '/check')
     runs-on: ubuntu-latest
     steps:
-      - name: Queue CI with a check label
+      - name: Dispatch CI on the pull request head
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO: ${{ github.repository }}
@@ -33,6 +33,8 @@ jobs:
           meta="$(gh api "repos/${REPO}/pulls/${PR}")"
           draft="$(jq -r '.draft' <<<"$meta")"
           base="$(jq -r '.base.ref' <<<"$meta")"
+          head_ref="$(jq -r '.head.ref' <<<"$meta")"
+          head_repo="$(jq -r '.head.repo.full_name' <<<"$meta")"
 
           if [[ "$draft" == "true" ]]; then
             echo "Ignoring /check on a draft pull request"
@@ -44,6 +46,9 @@ jobs:
             exit 0
           fi
 
-          gh label create check --repo "$REPO" --color 0E8A16 --description "Queues PR CI" || true
-          gh pr edit "$PR" --repo "$REPO" --remove-label check || true
-          gh pr edit "$PR" --repo "$REPO" --add-label check
+          if [[ "$head_repo" != "$REPO" ]]; then
+            echo "Ignoring /check; pull request head is a fork (${head_repo})"
+            exit 0
+          fi
+
+          gh workflow run ci.yml --repo "$REPO" --ref "$head_ref"

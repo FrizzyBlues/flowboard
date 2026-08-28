@@ -2,37 +2,32 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, ready_for_review, reopened, labeled]
+    types: [opened, ready_for_review, reopened]
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: ci-pr-${{ github.event.pull_request.number }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
-  pull-requests: write
-  issues: write
 
 jobs:
   ci:
     name: ci
     if: >
-      github.event.pull_request.draft == false &&
+      github.event_name == 'workflow_dispatch' ||
       (
-        github.event.action == 'opened' ||
-        github.event.action == 'ready_for_review' ||
-        github.event.action == 'reopened' ||
-        (github.event.action == 'labeled' && github.event.label.name == 'check')
+        github.event.pull_request.draft == false &&
+        (
+          github.event.action == 'opened' ||
+          github.event.action == 'ready_for_review' ||
+          github.event.action == 'reopened'
+        )
       )
     runs-on: ubuntu-latest
     steps:
-      - name: Clear check label
-        if: github.event.action == 'labeled'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --remove-label check || true
-
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
