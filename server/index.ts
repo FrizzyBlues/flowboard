@@ -1,7 +1,8 @@
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { discoverVentDashboard, isNumberInRange } from './ventDiscovery.js';
+import { buildVentCatalog, isNumberInRange } from './ventDiscovery.js';
+import { loadFlowboardConfig } from './config.js';
 import { HomeAssistantClient } from './homeAssistant.js';
 import { createMockStates } from './mockData.js';
 import type { CalibrationRequest, HomeAssistantState, VentActionRequest, VentsResponse } from '../shared/types.js';
@@ -16,6 +17,7 @@ const port = Number(process.env.PORT ?? 8788);
 const mockMode = ['1', 'true', 'yes', 'mock'].includes(String(process.env.MOCK_HASS ?? process.env.MOCK_HA ?? process.env.APP_MODE ?? '').toLowerCase());
 const hassUrl = process.env.HASS_URL ?? process.env.HA_URL ?? process.env.HOME_ASSISTANT_URL;
 const hassToken = process.env.HASS_TOKEN ?? process.env.HA_TOKEN ?? process.env.HOME_ASSISTANT_TOKEN;
+const flowboardConfig = loadFlowboardConfig();
 let mockStateStore = createMockStates();
 
 function getClient(): HomeAssistantClient | null {
@@ -62,7 +64,11 @@ function requireMutableCalibration(dashboard: VentsResponse, states: HomeAssista
 
 async function readDashboard(client = getClient()): Promise<VentsResponse> {
   const states = client ? await client.listStates() : mockStateStore;
-  return discoverVentDashboard(states, { mode: modeFor(client), connected: Boolean(client) || mockMode });
+  return buildVentCatalog(states, {
+    mode: modeFor(client),
+    connected: Boolean(client) || mockMode,
+    roomSensorSources: flowboardConfig.roomSensorSources,
+  });
 }
 
 function updateMockSwitch(entityId: string, action: 'open' | 'close') {
@@ -121,7 +127,11 @@ app.post('/api/vents/calibration', async (req, res, next) => {
 
     const client = getClient();
     const states = client ? await client.listStates() : mockStateStore;
-    const dashboard = discoverVentDashboard(states, { mode: modeFor(client), connected: Boolean(client) || mockMode });
+    const dashboard = buildVentCatalog(states, {
+      mode: modeFor(client),
+      connected: Boolean(client) || mockMode,
+      roomSensorSources: flowboardConfig.roomSensorSources,
+    });
     const { bounds } = requireMutableCalibration(dashboard, states, body.entityId);
     if (!isNumberInRange(body.value, bounds.min, bounds.max)) {
       throw new Error(`value must be between ${bounds.min} and ${bounds.max}`);

@@ -18,10 +18,11 @@ const DEFAULT_MIN = -1;
 const DEFAULT_MAX = 1;
 const DEFAULT_STEP = 0.01;
 
-interface DiscoveryOptions {
+export interface VentCatalogOptions {
   mode: 'live' | 'mock';
   updatedAt?: string;
   connected?: boolean;
+  roomSensorSources?: Record<string, string>;
 }
 
 function titleCase(slug: string): string {
@@ -106,12 +107,6 @@ function fallbackNumber(key: string, states: HomeAssistantState[], kind: 'open' 
    Matches sensor.<room-slug>_temperature / _humidity / _battery (exact, unambiguous),
    then falls back to friendly-name matching ("Study Room Temperature").
    One sensor per room is shared across every vent card in that room. */
-/* Rooms whose own sensors are wrong for vent purposes can borrow another room's.
-   Kitchen's matched sensors belong to a water-leak detector, not the vent. */
-const ROOM_SENSOR_SOURCE: Record<string, string> = {
-  kitchen: 'hearth',
-};
-
 function slugToNameVariants(roomId: string): string[] {
   const spaced = roomId.replace(/_/g, ' ');
   return [spaced, spaced.replace(/\b\w/g, (c) => c.toUpperCase())];
@@ -177,10 +172,14 @@ function discoverRoomSensors(states: HomeAssistantState[], roomId: string): Room
 }
 
 export function discoverVents(states: HomeAssistantState[]): VentDevice[] {
-  return discoverVentDashboard(states, { mode: 'mock' }).vents;
+  return buildVentCatalog(states, { mode: 'mock' }).vents;
 }
 
-export function discoverVentDashboard(states: HomeAssistantState[], options: DiscoveryOptions): VentsResponse {
+export function discoverVentDashboard(states: HomeAssistantState[], options: VentCatalogOptions): VentsResponse {
+  return buildVentCatalog(states, options);
+}
+
+export function buildVentCatalog(states: HomeAssistantState[], options: VentCatalogOptions): VentsResponse {
   const byEntity = new Map(states.map((state) => [state.entity_id, state]));
   const switchKeys = new Map<string, HomeAssistantState>();
   const silentSwitches = new Map<string, HomeAssistantState>();
@@ -230,10 +229,10 @@ export function discoverVentDashboard(states: HomeAssistantState[], options: Dis
       const minPosition = openRef?.min ?? closedRef?.min ?? DEFAULT_MIN;
       const maxPosition = openRef?.max ?? closedRef?.max ?? DEFAULT_MAX;
       const step = openRef?.step ?? closedRef?.step ?? DEFAULT_STEP;
-      // Room sensors: discover once per room, share across all its vents.
-      // Aliased rooms (e.g. kitchen -> hearth) resolve against their source room,
-      // ignoring their own (wrong-device) sensors entirely.
-      const sensorSourceRoom = ROOM_SENSOR_SOURCE[labels.roomId] ?? labels.roomId;
+      // Room sensors: discover once per sensor source room, share across all vents mapped to it.
+      // Aliased rooms (e.g. kitchen -> hearth) resolve against their configured source room,
+      // ignoring their own sensors entirely.
+      const sensorSourceRoom = options.roomSensorSources?.[labels.roomId] ?? labels.roomId;
       if (!roomSensorsById.has(sensorSourceRoom)) {
         roomSensorsById.set(sensorSourceRoom, discoverRoomSensors(states, sensorSourceRoom));
       }

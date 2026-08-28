@@ -132,6 +132,7 @@ describe('App', () => {
 
     await user.click(firstToggle);
     const studyInput = screen.getByLabelText(/OPEN position for number\.study_room_vent_1/);
+    expect(studyInput).toBeInTheDocument();
     // entity ID no longer displayed on the calibration side
     // flip back
     await user.click(screen.getByRole('button', { name: /BACK TO CONTROLS/i }));
@@ -257,7 +258,7 @@ describe('App', () => {
         { id: 'great_room', name: 'Great Room', vents: [greatRoomVent] },
       ],
     };
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => Response.json(body)));
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(body)));
     render(<App />);
 
     await cardHeading('Study Room');
