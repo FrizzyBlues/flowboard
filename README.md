@@ -134,8 +134,30 @@ Useful scripts:
 | Command | What it does |
 |---|---|
 | `npm test` | Vitest suite (discovery logic + UI behavior) |
+| `npm run lint` | ESLint |
 | `npm run build` | Type-check + production bundle |
+| `npm run ci` | Lint, test, and build in parallel (same as GitHub Actions) |
 | `MOCK_HA=true npm run server` | API server alone with mock data |
+
+## Pull request CI
+
+GitHub Actions runs **`lint`**, **`test`**, and **`build`** in one job (Node 24, `npm ci`, then `npm run ci`). The job name is **`ci`**. It is meant to be a **required** check on `main`.
+
+It runs when a **non-draft** pull request targeting **`main`** is:
+
+- opened
+- marked ready for review
+- reopened
+
+It does **not** run on later pushes. After you push, merge stays blocked until CI is green on the new HEAD. Comment **`/check`** (exactly that, nothing else) on the PR to run it again. A `check` label may appear and disappear; that is how the re-run is attached to the PR. In-flight runs for the same PR are cancelled.
+
+`/check` is ignored on drafts, on PRs not into `main`, and on comments from anyone who is not the repo owner, an org member, or a collaborator.
+
+The `/check` dispatcher lives on `main`. Until that workflow is merged, commenting `/check` on a PR that *adds* it will not queue CI.
+
+**Require the check** (repo admin, once): Settings → Branches → ruleset or branch protection for `main` → require status checks → **`ci`**.
+
+Same checks locally: `npm run ci`.
 
 ## Configuration
 
@@ -186,6 +208,7 @@ If the file is missing or not valid JSON, Flowboard ignores it and uses an empty
 ## Project layout
 
 ```
+├── .github/        PR CI workflows (open / ready / reopen / /check)
 ├── config/         flowboard.json (Room Sensor Source map)
 ├── src/            React UI (cards, rail, themes, sensor chips)
 ├── server/         Express HA proxy, vent+sensor discovery, mock data

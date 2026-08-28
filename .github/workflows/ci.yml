@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, ready_for_review, reopened, labeled]
+    branches: [main]
+
+concurrency:
+  group: ci-pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  ci:
+    name: ci
+    if: >
+      github.event.pull_request.draft == false &&
+      (
+        github.event.action == 'opened' ||
+        github.event.action == 'ready_for_review' ||
+        github.event.action == 'reopened' ||
+        (github.event.action == 'labeled' && github.event.label.name == 'check')
+      )
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clear check label
+        if: github.event.action == 'labeled'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh pr edit "${{ github.event.pull_request.number }}" --repo "${{ github.repository }}" --remove-label check || true
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run ci

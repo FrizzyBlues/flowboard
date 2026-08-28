@@ -1,0 +1,49 @@
+name: Check comment
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  dispatch:
+    if: >
+      github.event.issue.pull_request &&
+      contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association) &&
+      startsWith(github.event.comment.body, '/check')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Queue CI with a check label
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.issue.number }}
+        run: |
+          set -euo pipefail
+
+          body="$(jq -r '.comment.body' "$GITHUB_EVENT_PATH" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+          if [[ "$body" != "/check" ]]; then
+            echo "Ignoring comment; body is not exactly /check"
+            exit 0
+          fi
+
+          meta="$(gh api "repos/${REPO}/pulls/${PR}")"
+          draft="$(jq -r '.draft' <<<"$meta")"
+          base="$(jq -r '.base.ref' <<<"$meta")"
+
+          if [[ "$draft" == "true" ]]; then
+            echo "Ignoring /check on a draft pull request"
+            exit 0
+          fi
+
+          if [[ "$base" != "main" ]]; then
+            echo "Ignoring /check; base branch is ${base}, not main"
+            exit 0
+          fi
+
+          gh label create check --repo "$REPO" --color 0E8A16 --description "Queues PR CI" || true
+          gh pr edit "$PR" --repo "$REPO" --remove-label check || true
+          gh pr edit "$PR" --repo "$REPO" --add-label check
