@@ -52,6 +52,14 @@ function mockFetch(dashboardOverrides: Partial<VentsResponse> = {}) {
   });
 }
 
+function jsonPostBody(fetchMock: ReturnType<typeof mockFetch>, path: string) {
+  const call = fetchMock.mock.calls.find(
+    ([url, init]) => String(url) === path && (init as RequestInit | undefined)?.method === 'POST',
+  );
+  if (!call) throw new Error(`missing POST ${path}`);
+  return JSON.parse(String(call[1]?.body));
+}
+
 // The room name renders on BOTH card faces (controls + calibration), so scope
 // heading queries to the visible controls face.
 const cardHeading = async (room: string) => {
@@ -151,7 +159,7 @@ describe('App', () => {
     expect(register).toHaveAttribute('aria-pressed', 'true');
     await user.click(register);
     expect(fetchMock).toHaveBeenCalledWith('/api/vents/action', expect.objectContaining({ method: 'POST' }));
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+    expect(jsonPostBody(fetchMock, '/api/vents/action')).toEqual({
       entityId: 'switch.study_room_vent_1_vent_switch',
       action: 'close',
     });
@@ -313,7 +321,7 @@ describe('App', () => {
     await user.click(screen.getAllByRole('button', { name: /^SAVE$/i })[0]);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith('/api/vents/calibration', expect.objectContaining({ method: 'POST' })));
-    expect(JSON.parse(String(fetchMock.mock.calls[1][1]?.body))).toEqual({
+    expect(jsonPostBody(fetchMock, '/api/vents/calibration')).toEqual({
       entityId: 'number.study_room_vent_1_set_open_position',
       value: -0.55,
     });
