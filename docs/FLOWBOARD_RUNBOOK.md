@@ -2,6 +2,8 @@
 
 Docker-packaged React/TypeScript dashboard for ESPHome AC vents exposed through Home Assistant.
 
+Operator setup (env, Docker, `config/flowboard.json`, entity patterns) lives in the [README](../README.md). This runbook is failure modes, discovery details, and mutation routes.
+
 ## Current status
 
 - The browser never receives the Home Assistant token. It calls local `/api/*` endpoints served by the Express process.
@@ -9,63 +11,9 @@ Docker-packaged React/TypeScript dashboard for ESPHome AC vents exposed through 
 - Mock mode is safe for development, demos, tests, and Docker image validation; it uses in-memory fixture states and does not contact Home Assistant.
 - Listing vents is read-only. Opening, closing, and calibration writes are explicit user actions in the UI/API.
 
-## Runtime environment
+## Health
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `HASS_URL` | Live mode | Home Assistant base URL, for example `http://homeassistant.local:8123` or another reachable HA URL. |
-| `HASS_TOKEN` | Live mode | Home Assistant long-lived access token. Keep this out of Git and image layers. |
-| `PORT` | No | HTTP port for the app server. Defaults to `8788`. |
-| `MOCK_HASS=true` | No | Force safe mock mode. |
-| `MOCK_HA=true` | No | Alias for `MOCK_HASS=true`. |
-| `APP_MODE=mock` | No | Alternate way to force mock mode. |
-| `HA_URL`, `HOME_ASSISTANT_URL` | No | Aliases for `HASS_URL`. |
-| `HA_TOKEN`, `HOME_ASSISTANT_TOKEN` | No | Aliases for `HASS_TOKEN`. |
-
-If no live Home Assistant URL/token is configured, the server falls back to mock mode. Confirm the active mode with `GET /api/health`.
-
-## Local development
-
-```bash
-npm install
-npm run dev:full
-```
-
-Open the Vite URL shown in the terminal. The Vite dev server proxies `/api` to the Express server, which defaults to port `8788`.
-
-Useful verification commands:
-
-```bash
-npm test
-npm run lint
-npm run typecheck
-npm run build
-```
-
-## Docker build and run
-
-Build the image without secrets:
-
-```bash
-docker build -t flowboard:local .
-```
-
-Run in live mode with runtime-only Home Assistant configuration:
-
-```bash
-docker run --rm -p 8788:8788 \
-  -e HASS_URL=http://homeassistant.local:8123 \
-  -e HASS_TOKEN="$HASS_TOKEN" \
-  flowboard:local
-```
-
-Run in safe mock mode:
-
-```bash
-docker run --rm -p 8788:8788 -e MOCK_HASS=true flowboard:local
-```
-
-Check health:
+Confirm mode without exposing secrets:
 
 ```bash
 curl http://localhost:8788/api/health
@@ -79,9 +27,9 @@ Expected shape:
 
 In live mode, `mode` should be `live` and `hassConfigured` should be `true`. The token is never returned.
 
-## Docker Compose
+## Docker Compose secrets
 
-Start from the example file:
+Start from the example file (it bind-mounts `./config` — see the [README](../README.md#configuration)):
 
 ```bash
 cp docker-compose.example.yml docker-compose.yml
@@ -93,8 +41,6 @@ Recommended secret handling for a local deployment:
 2. Prefer a local `.env` or compose override for `HASS_TOKEN`.
 3. Do not bake `HASS_TOKEN` into the Dockerfile or image build args.
 
-Example compose environment:
-
 ```yaml
 environment:
   PORT: "8788"
@@ -102,26 +48,13 @@ environment:
   HASS_TOKEN: "${HASS_TOKEN}"
 ```
 
-Start the service:
-
 ```bash
 docker compose up --build
 ```
 
-## Home Assistant entity assumptions
+## Home Assistant discovery details
 
-The discovery logic reads `/api/states` and looks for ESPHome vent entities by entity ID pattern.
-
-| Entity kind | Pattern | Example |
-| --- | --- | --- |
-| Vent switch | `switch.<base>_vent_switch` | `switch.study_room_vent_1_vent_switch` |
-| Optional silent switch | `switch.<base>_vent_switch_silent` | `switch.study_room_vent_1_vent_switch_silent` |
-| Open calibration number | `number.<base>_set_open_position` | `number.study_room_vent_1_set_open_position` |
-| Closed calibration number | `number.<base>_set_closed_position` | `number.study_room_vent_1_set_closed_position` |
-
-The `<base>` key ties the switch and calibration numbers together. For `study_room_vent_1`, the UI displays room `Study Room` and vent `Vent 1`.
-
-Discovery details:
+Entity ID patterns live in the [README](../README.md#how-it-works). The `<base>` key (for example `study_room_vent_1`) ties the switch and calibration numbers together; the board displays room `Study Room` and vent `Vent 1`.
 
 - Switch states map as `on` → `open`, `off` → `closed`, `unknown` → `unknown`, and `unavailable` → `unavailable`.
 - Calibration values are parsed from Home Assistant number entity states.
@@ -131,7 +64,7 @@ Discovery details:
 
 ## Safe operation
 
-- Use `MOCK_HASS=true` for UI previews, screenshots, and tests.
+- Use `MOCK_HA=true` (or `MOCK_HASS=true`) for UI previews, screenshots, and tests.
 - `GET /api/vents` is read-only and only lists current HA states.
 - `POST /api/vents/action` calls `switch.turn_on` for `open` and `switch.turn_off` for `close` in live mode.
 - `POST /api/vents/calibration` calls `number.set_value` in live mode after validating the requested value against the number entity bounds.
@@ -182,6 +115,12 @@ Common causes:
 - Confirm the calibration number entity exists and is not unavailable.
 - Confirm the value is within the HA-provided min/max range, usually `-1` to `1`.
 - Check Home Assistant logs for ESPHome/API errors if HA accepts the request but the device does not move.
+
+### Wrong climate sensors on a Room
+
+- Confirm `config/flowboard.json` Room Sensor Source keys are Room ids, not display names.
+- Invalid JSON is ignored (empty map). Look for `Flowboard config ignored` in the server log.
+- Confirm the container is using the bind-mounted `config/` directory, not only the copy baked into the image.
 
 ## API reference
 
