@@ -101,6 +101,17 @@ describe('AC vent mutation safety', () => {
     expect(payload.error).toMatch(/unavailable/i);
   });
 
+  it('loads room sensor sources from config for dashboard discovery', async () => {
+    const vents = await fetch(`${baseUrl}/api/vents`).then((response) => response.json());
+    const kitchen = vents.vents.find((vent: { id: string }) => vent.id === 'kitchen_vent_1');
+    expect(kitchen.sensors).toMatchObject({
+      temperature: 67.6,
+      temperatureEntityId: 'sensor.hearth_temperature',
+      humidity: 43,
+      humidityEntityId: 'sensor.hearth_humidity',
+    });
+  });
+
   it('allows a discovered available mock vent action', async () => {
     const { response, payload } = await post('/api/vents/action', {
       entityId: 'switch.study_room_vent_1_vent_switch',
