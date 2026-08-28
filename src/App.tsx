@@ -1,4 +1,4 @@
-import { AlertTriangle, BatteryFull, BatteryLow, Droplets, Fan, Gauge, RefreshCcw, ShieldCheck, Thermometer, Wind } from 'lucide-react';
+import { AlertTriangle, BatteryFull, BatteryLow, Droplets, Fan, Gauge, RefreshCcw, ShieldCheck, Thermometer } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useVents } from './useVents';
 import type { PendingAction } from './useVents';
@@ -30,11 +30,6 @@ function useTheme() {
   }, [theme]);
 
   return { theme, setTheme };
-}
-
-function StatusPill({ vent }: { vent: VentDevice }) {
-  const label = vent.available ? vent.state : 'unavailable';
-  return <span className={`pill pill-${label}`}>{label.toUpperCase()}</span>;
 }
 
 function CalibrationField({ label, entityId, value, min, max, step, disabled, busy, onSave }: {

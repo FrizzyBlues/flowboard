@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { discoverVents } from './ventDiscovery.js';
+import { discoverVentDashboard, discoverVents } from './ventDiscovery.js';
 import { mockStates } from './mockData.js';
 
 describe('discoverVents', () => {
@@ -16,14 +16,28 @@ describe('discoverVents', () => {
     expect(office?.state).toBe('unavailable');
   });
 
-  it('kitchen borrows hearth sensors; its own leak-detector sensors are ignored', () => {
-    const vents = discoverVents(mockStates);
-    const kitchen = vents.find((vent) => vent.id === 'kitchen_vent_1');
+  it('kitchen can borrow hearth sensors through injected room sensor sources', () => {
+    const dashboard = discoverVentDashboard(mockStates, { mode: 'mock', roomSensorSources: { kitchen: 'hearth' } });
+    const kitchen = dashboard.vents.find((vent) => vent.id === 'kitchen_vent_1');
     expect(kitchen?.sensors).toMatchObject({
       temperature: 67.6,
       temperatureEntityId: 'sensor.hearth_temperature',
       humidity: 43,
       humidityEntityId: 'sensor.hearth_humidity',
+    });
+  });
+
+  it('uses injected room sensor sources instead of hardcoded aliases', () => {
+    const dashboard = discoverVentDashboard(mockStates, {
+      mode: 'mock',
+      roomSensorSources: { kitchen: 'study_room' },
+    });
+    const kitchen = dashboard.vents.find((vent) => vent.id === 'kitchen_vent_1');
+    expect(kitchen?.sensors).toMatchObject({
+      temperature: 72.4,
+      temperatureEntityId: 'sensor.study_room_temperature_and_humidity_sensor_temperature',
+      humidity: 41,
+      humidityEntityId: 'sensor.study_room_temperature_and_humidity_sensor_humidity',
     });
   });
 
