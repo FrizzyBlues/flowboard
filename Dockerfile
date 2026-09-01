@@ -1,9 +1,9 @@
-FROM node:24-alpine AS deps
+FROM --platform=$BUILDPLATFORM node:24-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-FROM deps AS build
+FROM --platform=$BUILDPLATFORM deps AS build
 COPY . .
 RUN npm run build
 RUN npm prune --omit=dev
